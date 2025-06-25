@@ -1,4 +1,4 @@
-"# weather-dashboard" 
+
 # 🌤 Weather Dashboard
 
 A simple, responsive web app that fetches real-time weather data via the OpenWeatherMap API.
