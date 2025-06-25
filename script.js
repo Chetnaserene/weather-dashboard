@@ -1,76 +1,163 @@
 /**
- * script.js
- * Handles user input, fetching data from OpenWeatherMap API, and updating the UI.
+ * Weather Dashboard App
+ * Features:
+ * - Current weather display
+ * - 5-day forecast
+ * - Geolocation support
+ * - Responsive design
  */
 
-const API_KEY = 'YOUR_API_KEY'; // TODO: Replace with your OpenWeatherMap API key
-const ENDPOINT = 'https://api.openweathermap.org/data/2.5/weather';
+const API_KEY = '687485225c2cccbbe9012153aca07d9e'; // Replace with your OpenWeatherMap API key
+const CURRENT_WEATHER_URL = 'https://api.openweathermap.org/data/2.5/weather';
+const FORECAST_URL = 'https://api.openweathermap.org/data/2.5/forecast';
 
-document.getElementById('search-btn').addEventListener('click', getWeatherOnClick);
+// DOM Elements
+const elements = {
+  cityInput: document.getElementById('city-input'),
+  searchBtn: document.getElementById('search-btn'),
+  locationBtn: document.getElementById('location-btn'),
+  currentWeather: document.getElementById('current-weather'),
+  forecast: document.getElementById('forecast'),
+  loading: document.getElementById('loading'),
+  errorMessage: document.getElementById('error-message'),
+  cityName: document.getElementById('city-name'),
+  weatherIcon: document.getElementById('weather-icon'),
+  temperature: document.getElementById('temperature'),
+  condition: document.getElementById('condition'),
+  humidity: document.getElementById('humidity'),
+  wind: document.getElementById('wind'),
+  forecastContainer: document.getElementById('forecast-container')
+};
 
+// Event Listeners
+elements.searchBtn.addEventListener('click', getWeatherByCity);
+elements.locationBtn.addEventListener('click', getWeatherByLocation);
+elements.cityInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') getWeatherByCity();
+});
+
+// Load last searched city on page load
+window.addEventListener('DOMContentLoaded', () => {
+  const lastCity = localStorage.getItem('lastCity');
+  if (lastCity) {
+    elements.cityInput.value = lastCity;
+    getWeatherByCity();
+  }
+});
+async function getApproximateLocation() {
+  try {
+    const response = await fetch('https://ipapi.co/json/');
+    const data = await response.json();
+    return {
+      latitude: data.latitude,
+      longitude: data.longitude,
+      city: data.city
+    };
+  } catch (error) {
+    throw new Error("Could not determine your location");
+  }
+}
+
+// Usage:
+const location = await getApproximateLocation();
+const currentData = await fetchWeatherByCoords(location.latitude, location.longitude);
 /**
- * Main entry: get weather when button is clicked
+ * Main function to get weather by city name
  */
-function getWeatherOnClick() {
-  const city = document.getElementById('city-input').value.trim();
+async function getWeatherByCity() {
+  const city = elements.cityInput.value.trim();
+  
   if (!city) {
-    alert('Please enter a city name.');
+    showError('Please enter a city name');
     return;
   }
-  fetchWeather(city);
-}
-
-/**
- * Fetch weather data from API, update UI accordingly
- * @param {string} city
- */
-async function fetchWeather(city) {
+  
+  showLoading();
+  clearError();
+  
   try {
-    const url = `${ENDPOINT}?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric`;
-    const resp = await fetch(url);
-    const data = await resp.json();
-
-    if (data.cod === '404') {
-      handleError('City not found. Please try again.');
-      return;
-    }
-
-    updateUI(data);
+    const currentData = await fetchWeather(city);
+    const forecastData = await fetchForecast(city);
+    
+    displayCurrentWeather(currentData);
+    displayForecast(forecastData);
+    
+    // Save to localStorage
     localStorage.setItem('lastCity', city);
-  } catch (err) {
-    console.error(err);
-    handleError('Unable to fetch data. Check your internet or try again later.');
+  } catch (error) {
+    showError(error.message);
+  } finally {
+    hideLoading();
   }
 }
 
 /**
- * Display retrieved weather data on the page
- * @param {object} data - JSON object from API
+ * Get weather by user's geolocation
  */
-function updateUI(data) {
-  document.getElementById('city-name').textContent = `${data.name}, ${data.sys.country}`;
-  document.getElementById('temperature').textContent = `Temperature: ${data.main.temp} °C`;
-  document.getElementById('condition').textContent = `Condition: ${data.weather[0].description}`;
-  document.getElementById('humidity').textContent = `Humidity: ${data.main.humidity}%`;
-  document.getElementById('wind').textContent = `Wind: ${data.wind.speed} km/h`;
-  document.getElementById('weather-icon').src = `https://openweathermap.org/img/wn/${data.weather[0].icon}.png`;
-
-  document.getElementById('weather-info').classList.remove('hidden');
+function getWeatherByLocation() {
+  showLoading();
+  clearError();
+  
+  if (!navigator.geolocation) {
+    showError('Geolocation is not supported by your browser');
+    hideLoading();
+    return;
+  }
+  
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      try {
+        const { latitude, longitude } = position.coords;
+        const currentData = await fetchWeatherByCoords(latitude, longitude);
+        const forecastData = await fetchForecastByCoords(latitude, longitude);
+        
+        displayCurrentWeather(currentData);
+        displayForecast(forecastData);
+        
+        // Update input field
+        elements.cityInput.value = currentData.name;
+        localStorage.setItem('lastCity', currentData.name);
+      } catch (error) {
+        showError(error.message);
+      } finally {
+        hideLoading();
+      }
+    },
+    (error) => {
+      showError('Unable to retrieve your location. Please enable location permissions.');
+      hideLoading();
+    }
+  );
 }
 
 /**
- * Show error alert and hide weather info section
- * @param {string} msg - error message
+ * Fetch current weather data by city name
  */
-function handleError(msg) {
-  alert(msg);
-  document.getElementById('weather-info').classList.add('hidden');
+async function fetchWeather(city) {
+  const response = await fetch(`${CURRENT_WEATHER_URL}?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric`);
+  return handleResponse(response);
 }
 
 /**
- * Auto-load last searched city when the page loads
+ * Fetch forecast data by city name
  */
-window.addEventListener('DOMContentLoaded', () => {
-  const last = localStorage.getItem('lastCity');
-  if (last) fetchWeather(last);
-});
+async function fetchForecast(city) {
+  const response = await fetch(`${FORECAST_URL}?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric`);
+  return handleResponse(response);
+}
+
+/**
+ * Fetch current weather data by coordinates
+ */
+async function fetchWeatherByCoords(lat, lon) {
+  const response = await fetch(`${CURRENT_WEATHER_URL}?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`);
+  return handleResponse(response);
+}
+
+/**
+ * Fetch forecast data by coordinates
+ */
+async function fetchForecastByCoords(lat, lon) {
+  const response = await fetch(`${FORECAST_URL}?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`);
+  return handleResponse(response);
+}
