@@ -1,0 +1,39 @@
+/* Base styles */
+body, html {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+  display: flex; justify-content: center; align-items: center;
+  height: 100vh; background: #f0f0f0;
+}
+
+.container {
+  background: white; padding: 20px;
+  border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  max-width: 400px; width: 90%; text-align: center;
+}
+
+/* Search form style */
+.search {
+  display: flex; gap: 8px; margin-bottom: 20px;
+}
+#city-input {
+  flex: 1; padding: 8px; font-size: 1rem;
+  border: 1px solid #ccc; border-radius: 4px;
+}
+#search-btn {
+  padding: 8px 16px; font-size: 1rem;
+  background: #007bff; color: white; border: none;
+  border-radius: 4px; cursor: pointer;
+}
+#search-btn:hover { background: #0056b3; }
+
+/* Weather info */
+.hidden { display: none; }
+#weather-icon { width: 60px; height: 60px; margin: 10px 0; }
+
+/* Responsive layout for small screens */
+@media (max-width: 500px) {
+  .search { flex-direction: column; }
+  #search-btn { width: 100%; }
+}
